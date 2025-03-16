@@ -130,3 +130,4 @@ SELECT f.folio, f.rfc_cliente, f.fecha, (
 	WHERE f.folio = df.folio_factura
 	GROUP BY f.folio
 ) AS total_factura
+FROM facturas f; -- no se usó COALESCE pues no se encontró un registro con NULL
