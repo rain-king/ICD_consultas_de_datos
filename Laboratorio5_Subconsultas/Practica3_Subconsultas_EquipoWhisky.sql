@@ -78,7 +78,24 @@ WHERE va.cantidad_vendida = (
 	FROM ventas_articulo
 )
 -- 6. Como cientifico de datos, proponer por lo menos dos subconsulta de este tipo,
--- PENDIENTE
+-- Articulos que cuesten más del doble del más barato
+SELECT codigo, nombre, precio
+FROM articulos
+WHERE precio > (
+	SELECT 2*MIN(precio)
+	FROM articulos
+);
+-- Artículos vendidos el mayor número de veces en una sola factura
+SELECT a.nombre, a.precio
+FROM articulos a
+WHERE a.codigo IN (
+	SELECT df.codigo_articulo
+	FROM detalles_facturas df
+	WHERE cantidad = ( -- subconsulta escalar
+		SELECT MAX(cantidad)
+		FROM detalles_facturas
+	)
+);
 
 ------------------------------
 -- 2. SUBCONSULTAS DE TABLA --
