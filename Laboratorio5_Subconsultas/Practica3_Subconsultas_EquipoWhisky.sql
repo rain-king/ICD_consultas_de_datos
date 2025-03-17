@@ -134,7 +134,38 @@ WITH total_por_cliente AS (
 SELECT * FROM total_por_cliente
 WHERE total_facturado > 2000;
 
--- PENDIENTES…
+-- 3. ¿Qué artículos han sido vendidos en más de 5 unidades? Listar codigo_articulo,
+-- total_vendido. Permite identificar los productos más demandados y optimizar el
+-- inventario en función de la demanda.
+WITH articulos_vendidos AS (
+	SELECT a.codigo, SUM(df.cantidad) total_vendido
+	FROM detalles_facturas df
+	INNER JOIN articulos a ON df.codigo_articulo = a.codigo
+	GROUP BY a.codigo
+)
+SELECT * FROM articulos_vendidos
+WHERE total_vendido > 5;
+
+-- 4. ¿Cuáles son las facturas que incluyen más de 3 artículos distintos? Listar
+-- Folio_fatura,total_articulos. Permite analizar el comportamiento de compra y detectar
+-- patrones de consumo que ayuden a personalizar recomendaciones.
+SELECT folio_factura, COUNT(*) total_articulos
+FROM detalles_facturas df
+GROUP BY folio_factura
+HAVING COUNT(*) > 3; -- como un registro de df tiene como llave (codigo_articulo, folio_factura), un registro distinto con la misma factura en la tabla corresponde a un artículo distinto
+
+-- 5. ¿Qué estados tienen más de 10 clientes registrados? Listar id_estado, totalclientes.
+-- Permite identificar regiones con alta densidad de clientes para mejorar estrategias de
+-- distribución y marketing.
+SELECT l.id_estado, COUNT(*) as totalclientes
+FROM localidades l
+INNER JOIN clientes c ON (c.id_estado, c.id_municipio, c.id_localidad) = (l.id_estado, l.id_municipio, l.id_localidad)
+GROUP BY l.id_estado
+HAVING COUNT(*) > 10;
+
+-- 6. Como cientifico de datos, proponer por lo menos dos subconsulta de este tipo,
+-- explicando su propósito, qué se logra con como científico de datos y su solución.
+-- PENDIENTE
 
 -------------------------------------
 -- 3. SUBCONSULTAS CORRELACIONADAS --
