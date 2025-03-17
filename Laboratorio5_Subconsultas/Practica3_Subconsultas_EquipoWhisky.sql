@@ -173,10 +173,34 @@ HAVING COUNT(*) > 10;
 -- 1. Listar las facturas junto con el total de dinero generado en cada una. Listar: folio,
 -- rfc_cliente, fecha, total_factura. Proporciona información clave sobre el volumen de
 -- ventas por factura. Puede emplear la función COALESCE(..., 0).
+
+-- Si la cantidad o el precio de venta fuera nulo, se suma 0 en ese registro en la subconsulta
 SELECT f.folio, f.rfc_cliente, f.fecha, (
-	SELECT SUM(df.cantidad*df.precio_venta)
+	SELECT SUM(COALESCE(df.cantidad*df.precio_venta, 0))
 	FROM detalles_facturas df
 	WHERE f.folio = df.folio_factura
 	GROUP BY f.folio
 ) AS total_factura
-FROM facturas f; -- no se usó COALESCE pues no se encontró un registro con NULL
+FROM facturas f;
+
+-- 2. Listar los clientes junto con la cantidad de facturas que han generado. Listar:
+-- rfc_cliente, nombre, apellido_paterno, apellido_materno, cantidad_facturas. Permite
+-- conocer qué clientes tienen mayor actividad comercial, lo que ayuda en estrategias de
+-- fidelización o segmentación de clientes.
+SELECT c.rfc_cliente, c.nombre, c.apellido_paterno, c.apellido_materno, (
+	SELECT COUNT(*)
+	FROM facturas f
+	WHERE c.rfc_cliente = f.rfc_cliente
+) cantidad_facturas
+FROM clientes c;
+
+-- 3. Listar los municipios junto con la cantidad de localidades que pertenecen a cada uno.
+-- Listar: id_estado, id_municipio, nombre, cantidad_localidades. Ayuda a analizar la
+-- distribución de localidades dentro de cada municipio, lo que permite tomar decisiones
+-- sobre servicios o infraestructura.
+SELECT id_estado, id_municipio, nombre, (
+	SELECT COUNT(*)
+	FROM localidades l
+	WHERE (m.id_estado, m.id_municipio) = (l.id_estado, l.id_municipio)
+)
+FROM municipios m;
