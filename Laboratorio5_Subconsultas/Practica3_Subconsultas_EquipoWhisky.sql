@@ -43,23 +43,19 @@ WHERE fecha = (
 
 -- 4. ¿Cuáles son los clientes que viven en la localidad con el mayor número de clientes registrados? Listar nombre del cliente y localidad. Permite realizar estrategias de mercado o segmentación, es útil conocer la localidad con más clientes.
 WITH clientes_localidades AS (
-	SELECT l.id_localidad, l.id_municipio, l.id_estado, COUNT(*) numero_clientes
+	SELECT l.id_localidad, l.id_municipio, l.id_estado, l.nombre, COUNT(*) numero_clientes
 	FROM clientes c
 	RIGHT JOIN localidades l
-	ON (c.id_localidad, c.id_municipio, c.id_estado) = (l.id_localidad, l.id_municipio, l.id_estado) -- RIGHT porque no se cuentan clientes sin localidad registrada en el conteo de clientes por localidad
+	ON (c.id_localidad, c.id_municipio, c.id_estado) = (l.id_localidad, l.id_municipio, l.id_estado)
 	GROUP BY l.id_localidad, l.id_municipio, l.id_estado
 )
-SELECT c.rfc_cliente, c.nombre nombre_cliente, l.nombre localidad
+SELECT c.nombre nombre_cliente, cl.nombre localidad
 FROM clientes c
-INNER JOIN localidades l
-ON (c.id_localidad, c.id_municipio, c.id_estado) = (l.id_localidad, l.id_municipio, l.id_estado)
-WHERE (l.id_localidad, l.id_municipio, l.id_estado) IN ( -- localidades que tengan el máximo de clientes
-	SELECT id_localidad, id_municipio, id_estado
-	FROM clientes_localidades
-	WHERE numero_clientes = (
-		SELECT MAX(numero_clientes)
-		FROM clientes_localidades
-	)
+INNER JOIN clientes_localidades cl
+ON (c.id_localidad, c.id_municipio, c.id_estado) = (cl.id_localidad, cl.id_municipio, cl.id_estado)
+WHERE cl.numero_clientes = (
+	SELECT MAX(cl_sub.numero_clientes)
+	FROM clientes_localidades cl_sub
 );
 
 -- 5. ¿Cuál es el producto que ha sido vendido más veces en todas las facturas? Listar
@@ -113,7 +109,7 @@ WITH facturas_productos_distintos AS (
 SELECT c.nombre nombre_cliente, a.nombre productos_distintos
 FROM clientes c
 -- Los siguientes join encuentran el nombre del artículo que se compro en conjunto con otro en la misma factura
-INNER JOIN facturas_productos_distintos fpd  ON c.rfc_cliente = fpd.rfc_cliente
+INNER JOIN facturas_productos_distintos fpd	ON c.rfc_cliente = fpd.rfc_cliente
 INNER JOIN detalles_facturas df ON fpd.folio_factura = df.folio_factura
 INNER JOIN articulos a ON df.codigo_articulo = a.codigo;
 
@@ -203,4 +199,223 @@ SELECT id_estado, id_municipio, nombre, (
 	FROM localidades l
 	WHERE (m.id_estado, m.id_municipio) = (l.id_estado, l.id_municipio)
 )
-FROM municipios m;
+FROM municipios m; -- COMPROBAR
+
+SELECT * FROM localidades l
+RIGHT JOIN municipios m ON (l.id_estado, l.id_municipio) = (m.id_estado, m.id_municipio);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------
+-- Alfredo ---------------------------------
+--------------------------------------------
+-- 4. Listar los estados junto con la cantidad de municipios que tienen:
+--Listar: id_estado,nombre cantidad_municipios.
+--Util para estudios geograficos y administratios sobre la cantidad de municipios por estado
+SELECT id_estado, nombre, (
+	SELECT COUNT(*)
+	FROM municipios m
+	WHERE m.id_estado = e.id_estado
+) AS cantidad_municipios
+FROM estados e;
+
+-- 5.Listar los artículos junto con la cantidad total de veces que han sido vendidos en facturas
+--Listar: codigo, nombre, cantidad_vendida.
+--Ayuda en la estión de inventario y deteccion de productos más vvendidos.
+SELECT codigo, nombre, (
+	SELECT COALESCE(SUM(df.cantidad), 0)
+	FROM detalles_facturas df
+	WHERE df.codigo_articulo = a.codigo
+) AS cantidad_vendida
+FROM articulos a;
+
+--6. Como cientifico de datos, proponer po lo menos dos subconsultas de este tipo, explicando su propósito,
+--qué se logra con como cientifico de datos y su solución.
+-- PENDIENTE
+
+
+
+
+
+
+
+
+
+
+-----------------------------------
+-- 4. PREDICADOS EN SUBCONSULTAS --
+-----------------------------------
+--IN Y NOT IN
+--1. ¿Cualés son los productos que no se han vendido? Listar codigo y nombre.
+--Permite conocer qué producto no tienen demanda para definir estrategias de ventas.
+SELECT codigo, nombre
+FROM articulos
+WHERE codigo NOT IN (
+	SELECT codigo_articulo
+	FROM detalles_facturas
+)
+ORDER BY codigo ASC;
+--2. ¿Cuáles son los clientes que han realizado al menos una compra? 
+--Listar:rfc_cliente, nombre, apellido_paterno, apellido_materno. 
+--Permite identificar clientes activos que han realizado compras permite analizar tendencias de
+--consumo, segmentar clientes y desarrollar estrategias de fidelización.
+SELECT rfc_cliente, nombre, apellido_paterno, apellido_materno
+FROM clientes
+WHERE rfc_cliente IN ( 
+	SELECT rfc_cliente
+	FROM facturas
+);
+
+--3. ¿Cuáles son los artículos que no han sido vendidos en ninguna factura? 
+--Listar:codigo, nombre, precio.
+--Identificar productos sin demanda es clave
+--para optimizar el inventario, mejorar estrategias de ventas y reducir costos de almacenamiento.
+SELECT codigo, nombre, precio
+FROM articulos
+WHERE codigo NOT IN (
+	SELECT codigo_articulo
+	FROM detalles_facturas
+)
+ORDER BY precio DESC;
+
+--4. Listar estados que no tienen localidades registradas. 
+--Listar: id_estado,nombre. 
+--Permite identificar estados sin localidades registradas es importante
+--para detectar inconsistencias en los datos, mejorar la calidad de la información
+--y garantizar la cobertura completa en análisis geoespaciales.
+SELECT id_estado, nombre
+FROM estados
+WHERE id_estado NOT IN (
+	SELECT id_estado
+	FROM localidades
+);
+	
+--5. Como cientifico de datos, proponer por lo menos dos subconsulta de este
+--tipo, explicando su propósito, qué se logra con como científico de datos y su
+--solución.
+-- PENDIENTE
+
+--EXISTS
+--1. ¿Cuáles son los productos que no se an vendido? Listar codigo y nombre.
+--Permite conocer qué producto no tienen demanda para definir estrategias de
+--ventas.
+SELECT codigo, nombre
+FROM articulos a
+WHERE NOT EXISTS (
+	SELECT 1
+	FROM detalles_facturas df
+	WHERE df.codigo_articulo = a.codigo
+)
+ORDER BY codigo ASC;
+
+--2. ¿Cuáles son los clientes que han realizado al menos una compra? 
+--Listar:rfc_cliente, nombre, apellido_paterno, apellido_materno. 
+--Permite identificar clientes activos que han realizado compras permite analizar tendencias de
+--consumo, segmentar clientes y desarrollar estrategias de fidelización.
+SELECT rfc_cliente, nombre, apellido_paterno, apellido_materno
+FROM clientes c
+WHERE EXISTS ( 
+	SELECT 1
+	FROM facturas f
+	WHERE f.rfc_cliente = c.rfc_cliente
+);
+
+--3. ¿Cuáles son los artículos que no han sido vendidos en ninguna factura? 
+--Listar:codigo, nombre, precio.
+--Identificar productos sin demanda es clave
+--para optimizar el inventario, mejorar estrategias de ventas y reducir costos de almacenamiento.
+SELECT codigo,nombre,precio
+FROM articulos a
+WHERE NOT EXISTS (
+	SELECT 1
+	FROM detalles_facturas df
+	WHERE df.codigo_articulo = a.codigo
+)
+ORDER BY precio DESC;
+
+
+-- 3. ANY --
+/* 1. ¿Cuáles son los clientes que han realizado al menos una compra? Listar:
+rfc_cliente, nombre, apellido_paterno, apellido_materno. Permite identificar
+clientes activos permite segmentar campañas de fidelización y mejorar
+estrategias de ventas.*/
+SELECT rfc_cliente,nombre,apellido_paterno,apellido_materno
+FROM clientes
+WHERE rfc_cliente = ANY ( 
+	SELECT rfc_cliente
+	FROM facturas
+);
+	
+/* 2. ¿Qué artículos han sido vendidos a un precio mayor que el registrado en la
+tabla de artículos? 
+Listar: codigo_articulo, precio_venta. 
+Permite analizar precios de venta frente a los precios base permite detectar oportunidades de
+mejora en la fijación de precios y márgenes de ganancia.
+*/
+-- en este ejercicio ANY es innecesario pues la tabla articulos solo tiene un registro de precio por artículo
+SELECT codigo_articulo,precio_venta
+FROM detalles_facturas df
+WHERE df.precio_venta > ANY (
+	SELECT precio
+	FROM articulos a
+	WHERE a.codigo = df.codigo_articulo
+)
+ORDER BY precio_venta DESC;
+
+-- 4. ALL
+/* 1. ¿Cuáles son los artículos que en todas sus ventas se vendieron a un precio
+mayor que el registrado en el catálogo? 
+Listar: codigo_articulo, nombre,precio_venta. 
+Permite analizar la efectividad de las estrategias de precios y
+detectar artículos con márgenes de ganancia constantes.
+*/
+SELECT df.codigo_articulo, a.nombre, df.precio_venta
+FROM detalles_facturas df
+LEFT JOIN articulos a ON df.codigo_articulo = a.codigo
+WHERE a.precio < ALL (
+	SELECT df_sub.precio_venta
+	FROM detalles_facturas df_sub
+	WHERE a.codigo = df_sub.codigo_articulo
+);
+
+/*2. ¿Qué clientes han realizado más compras que cualquier cliente con apellido
+"Gómez"? Listar: rfc_cliente, nombre, apellido_paterno, apellido_materno
+Propósito como científico de datos: Identifica clientes con alta recurrencia en
+compras para estrategias de fidelización.
+*/
+SELECT rfc_cliente, nombre, apellido_paterno, apellido_materno
+FROM clientes c
+WHERE (
+	SELECT COUNT(*) --cantidad compras hechas por el cliente
+	FROM facturas f
+	WHERE f.rfc_cliente = c.rfc_cliente 
+) > ALL (
+	SELECT COUNT(*)
+	FROM facturas
+	WHERE rfc_cliente IN (
+		SELECT rfc_cliente --Cantidad de compra de los Gomez
+		FROM clientes
+		WHERE apellido_paterno = 'Gómez' OR apellido_materno = 'Gómez'
+	)
+	GROUP BY rfc_cliente
+);
+
+
+/* 3. Como cientifico de datos, proponer por lo menos dos subconsulta de este
+tipo, explicando su propósito, qué se logra con como científico de datos y su
+solución
+*/
+-- PENDIENTE
