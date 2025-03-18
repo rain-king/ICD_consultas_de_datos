@@ -72,16 +72,17 @@ LEFT JOIN articulos a ON va.codigo_articulo = a.codigo
 WHERE va.cantidad_vendida = (
 	SELECT MAX(cantidad_vendida)
 	FROM ventas_articulo
-)
+);
+
 -- 6. Como cientifico de datos, proponer por lo menos dos subconsulta de este tipo,
--- Articulos que cuesten más del doble del más barato
+-- #1 Articulos que cuesten más del doble del más barato
 SELECT codigo, nombre, precio
 FROM articulos
 WHERE precio > (
 	SELECT 2*MIN(precio)
 	FROM articulos
 );
--- Artículos vendidos el mayor número de veces en una sola factura
+-- #2 Artículos vendidos el mayor número de veces en una sola factura
 SELECT a.nombre, a.precio
 FROM articulos a
 WHERE a.codigo IN (
@@ -92,6 +93,16 @@ WHERE a.codigo IN (
 		FROM detalles_facturas
 	)
 );
+
+
+
+
+
+
+
+
+
+
 
 ------------------------------
 -- 2. SUBCONSULTAS DE TABLA --
@@ -109,7 +120,7 @@ WITH facturas_productos_distintos AS (
 SELECT c.nombre nombre_cliente, a.nombre productos_distintos
 FROM clientes c
 -- Los siguientes join encuentran el nombre del artículo que se compro en conjunto con otro en la misma factura
-INNER JOIN facturas_productos_distintos fpd	ON c.rfc_cliente = fpd.rfc_cliente
+INNER JOIN facturas_productos_distintos fpd ON c.rfc_cliente = fpd.rfc_cliente
 INNER JOIN detalles_facturas df ON fpd.folio_factura = df.folio_factura
 INNER JOIN articulos a ON df.codigo_articulo = a.codigo;
 
@@ -153,15 +164,44 @@ HAVING COUNT(*) > 3; -- como un registro de df tiene como llave (codigo_articulo
 -- 5. ¿Qué estados tienen más de 10 clientes registrados? Listar id_estado, totalclientes.
 -- Permite identificar regiones con alta densidad de clientes para mejorar estrategias de
 -- distribución y marketing.
-SELECT l.id_estado, COUNT(*) as totalclientes
-FROM localidades l
-INNER JOIN clientes c ON (c.id_estado, c.id_municipio, c.id_localidad) = (l.id_estado, l.id_municipio, l.id_localidad)
-GROUP BY l.id_estado
+-- SELECT l.id_estado, COUNT(*) AS totalclientes
+-- FROM localidades l
+-- INNER JOIN clientes c ON (c.id_estado, c.id_municipio, c.id_localidad) = (l.id_estado, l.id_municipio, l.id_localidad)
+-- GROUP BY l.id_estado
+-- HAVING COUNT(*) > 10;
+SELECT c.id_estado, COUNT(*) AS totalclientes
+FROM clientes c
+GROUP BY c.id_estado
 HAVING COUNT(*) > 10;
 
 -- 6. Como cientifico de datos, proponer por lo menos dos subconsulta de este tipo,
 -- explicando su propósito, qué se logra con como científico de datos y su solución.
--- PENDIENTE
+-- #1 Cantidad promedio vendida por artículo
+SELECT a.nombre, COALESCE(cantidad_promedio, 0) cantidad_promedio_vendida
+FROM (
+	SELECT codigo_articulo, AVG(cantidad) AS cantidad_promedio
+	FROM detalles_facturas df
+	GROUP BY codigo_articulo
+) subtabla
+RIGHT JOIN articulos a ON subtabla.codigo_articulo = a.codigo;
+-- #2 Precio de venta promedio de cada artículo vendido contra precio en inventario
+SELECT a.nombre, precio_venta_promedio, a.precio precio
+FROM (
+	SELECT codigo_articulo, AVG(precio_venta) precio_venta_promedio
+	FROM detalles_facturas
+	GROUP BY codigo_articulo
+) subtabla
+INNER JOIN articulos a ON subtabla.codigo_articulo = a.codigo;
+
+
+
+
+
+
+
+
+
+
 
 -------------------------------------
 -- 3. SUBCONSULTAS CORRELACIONADAS --
@@ -199,29 +239,8 @@ SELECT id_estado, id_municipio, nombre, (
 	FROM localidades l
 	WHERE (m.id_estado, m.id_municipio) = (l.id_estado, l.id_municipio)
 )
-FROM municipios m; -- COMPROBAR
+FROM municipios m;
 
-SELECT * FROM localidades l
-RIGHT JOIN municipios m ON (l.id_estado, l.id_municipio) = (m.id_estado, m.id_municipio);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
---------------------------------------------
--- Alfredo ---------------------------------
---------------------------------------------
 -- 4. Listar los estados junto con la cantidad de municipios que tienen:
 --Listar: id_estado,nombre cantidad_municipios.
 --Util para estudios geograficos y administratios sobre la cantidad de municipios por estado
@@ -244,7 +263,40 @@ FROM articulos a;
 
 --6. Como cientifico de datos, proponer po lo menos dos subconsultas de este tipo, explicando su propósito,
 --qué se logra con como cientifico de datos y su solución.
--- PENDIENTE
+-- #1 Número de artículos distintos comprados por cliente: permite reconocer la necesidad de diversificar los articulos vendidos
+SELECT rfc_cliente, (
+	SELECT COUNT(*)
+	FROM (
+		SELECT DISTINCT codigo_articulo
+		FROM detalles_facturas
+		WHERE folio_factura IN (
+			SELECT folio
+			FROM facturas f
+			WHERE f.rfc_cliente = c.rfc_cliente
+		)
+	)
+) numero_articulos
+FROM clientes c;
+
+-- #2 Ventas por localidad: permite conocer qué localidades generan más ganancias
+SELECT l.nombre, (
+	SELECT COALESCE(SUM(cantidad*precio_venta), 0)
+	FROM (
+		SELECT cantidad, precio_venta
+		FROM detalles_facturas
+		WHERE folio_factura IN (
+			SELECT folio
+			FROM facturas
+			WHERE rfc_cliente IN (
+				SELECT rfc_cliente
+				FROM clientes c
+				WHERE (c.id_estado, c.id_municipio, c.id_localidad) = (l.id_estado, l.id_municipio, l.id_localidad)
+			)
+		)
+	)
+) venta_total
+FROM localidades l
+ORDER BY venta_total DESC;
 
 
 
