@@ -1,5 +1,5 @@
 -- Equipo Whisky
--- Alumnos: Gustavo Murillo Vega, Jose Alfredo Sanchez Grijalva, …
+-- Alumnos: Gustavo Murillo Vega, Jose Alfredo Sanchez Grijalva, Garcia Monzon Isvi Gabriel,,Urquidez Perez Misael Enrique
 -- Instructor: Gerardo Gálvez Gámez
 -- Lic. en Ing. en Ciencias de Datos
 -- Tema: Laboratorio 5 Subconsultas
