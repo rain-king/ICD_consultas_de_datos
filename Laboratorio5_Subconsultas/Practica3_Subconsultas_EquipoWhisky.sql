@@ -358,7 +358,40 @@ WHERE id_estado NOT IN (
 --5. Como cientifico de datos, proponer por lo menos dos subconsulta de este
 --tipo, explicando su propósito, qué se logra con como científico de datos y su
 --solución.
--- PENDIENTE
+-- #1 Artículos comprados por clientes de Culiacán
+SELECT DISTINCT nombre
+FROM articulos a
+WHERE codigo IN (
+	SELECT codigo_articulo
+	FROM detalles_facturas df
+	WHERE folio_factura IN (
+		SELECT folio
+		FROM facturas f
+		WHERE rfc_cliente IN (
+			SELECT rfc_cliente
+			FROM clientes
+			WHERE (id_estado, id_municipio) IN (
+				SELECT id_estado, id_municipio
+				FROM municipios m
+				WHERE m.nombre = 'CULIACAN'
+			)
+		)
+	)
+);
+
+-- Clientes que han gastado más de 6000
+SELECT c.rfc_cliente, c.nombre
+FROM clientes c
+WHERE rfc_cliente IN (
+	SELECT rfc_cliente
+	FROM (
+		SELECT f.rfc_cliente, SUM(cantidad*precio_venta) gasto_total
+		FROM detalles_facturas df
+		INNER JOIN facturas f ON df.folio_factura = f.folio
+		GROUP BY f.rfc_cliente
+	)
+	WHERE gasto_total > 6000
+);
 
 --EXISTS
 --1. ¿Cuáles son los productos que no se an vendido? Listar codigo y nombre.
@@ -370,8 +403,7 @@ WHERE NOT EXISTS (
 	SELECT 1
 	FROM detalles_facturas df
 	WHERE df.codigo_articulo = a.codigo
-)
-ORDER BY codigo ASC;
+);
 
 --2. ¿Cuáles son los clientes que han realizado al menos una compra? 
 --Listar:rfc_cliente, nombre, apellido_paterno, apellido_materno. 
@@ -395,9 +427,8 @@ WHERE NOT EXISTS (
 	SELECT 1
 	FROM detalles_facturas df
 	WHERE df.codigo_articulo = a.codigo
-)
-ORDER BY precio DESC;
-
+);
+-- CONCLUSIÓN: Aquí todas las subconsultas son correlacionadas a una llave primaria, por lo que la subconsulta donde se usa el IN o EXISTS solo tiene que verificar un registro, y no hay diferencia de eficiencia
 
 -- 3. ANY --
 /* 1. ¿Cuáles son los clientes que han realizado al menos una compra? Listar:
@@ -417,15 +448,39 @@ Listar: codigo_articulo, precio_venta.
 Permite analizar precios de venta frente a los precios base permite detectar oportunidades de
 mejora en la fijación de precios y márgenes de ganancia.
 */
--- en este ejercicio ANY es innecesario pues la tabla articulos solo tiene un registro de precio por artículo
+-- (en este ejercicio ANY es innecesario pues la tabla articulos solo tiene un registro de precio por artículo)
 SELECT codigo_articulo,precio_venta
 FROM detalles_facturas df
 WHERE df.precio_venta > ANY (
 	SELECT precio
 	FROM articulos a
 	WHERE a.codigo = df.codigo_articulo
-)
-ORDER BY precio_venta DESC;
+	-- al usar un WHERE haciendo match a la llave primaria de articulos, se regresa solo un precio
+);
+
+-- 3. Como cientifico de datos, proponer por lo menos dos subconsulta de este
+-- tipo, explicando su propósito, qué se logra con como científico de datos y su
+-- solución
+-- #1 Artículos que han sido vendidos alguna vez a mayor precio del registrado en la tabla de artículos - esta vez con el precio y nombre de la tabla artículos. En esta consulta es necesario usar ANY pues se compara uno a varios, en vez de uno  a uno
+SELECT a.nombre, a.precio
+FROM articulos a
+WHERE a.precio < ANY (
+	SELECT precio_venta -- regresa posiblemente varios
+	FROM detalles_facturas df
+	WHERE df.codigo_articulo = a.codigo
+	-- aquí codigo_articulo no es la llave primaria de detalles_facturas
+);
+
+-- #2 Clientes que han hecho al menos una compra con total mayor a 8000
+SELECT c.rfc_cliente, c.nombre
+FROM clientes c
+INNER JOIN facturas f ON c.rfc_cliente = f.rfc_cliente
+WHERE f.folio = ANY (
+	SELECT df.folio_factura
+	FROM detalles_facturas df
+	GROUP BY df.folio_factura
+	HAVING SUM(precio_venta*cantidad) > 8000
+);
 
 -- 4. ALL
 /* 1. ¿Cuáles son los artículos que en todas sus ventas se vendieron a un precio
@@ -470,4 +525,34 @@ WHERE (
 tipo, explicando su propósito, qué se logra con como científico de datos y su
 solución
 */
--- PENDIENTE
+-- #1 Clientes cuyas todas compras sean mayor a 3000
+WITH totales_facturas AS (
+	SELECT rfc_cliente, folio, SUM(cantidad*precio_venta) total_factura
+	FROM facturas f
+	INNER JOIN detalles_facturas df ON f.folio = df.folio_factura
+	GROUP BY rfc_cliente, folio
+)
+SELECT rfc_cliente, nombre
+FROM clientes c
+WHERE 5000 < ALL (
+	SELECT total_factura
+	FROM totales_facturas tf
+	WHERE tf.rfc_cliente = c.rfc_cliente
+);
+-- #2 Clientes con toda compra menor que el promedio de total por factura
+WITH totales_facturas AS (
+	SELECT rfc_cliente, folio, SUM(cantidad*precio_venta) total_factura
+	FROM facturas f
+	INNER JOIN detalles_facturas df ON f.folio = df.folio_factura
+	GROUP BY rfc_cliente, folio
+)
+SELECT rfc_cliente, nombre
+FROM clientes c
+WHERE (
+	SELECT AVG(total_factura)
+	FROM totales_facturas
+) > ALL (
+	SELECT total_factura
+	FROM totales_facturas tf
+	WHERE tf.rfc_cliente = c.rfc_cliente
+);
