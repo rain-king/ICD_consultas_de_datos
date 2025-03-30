@@ -31,9 +31,45 @@ INNER JOIN (
 ) pf ON c.rfc_cliente = pf.rfc_cliente
 WHERE pf.promedio_facturacion < 5000;
 
--- 8. Listar los datos de los clientes registrados incluyendo a los que no tienen facturas registradas, mostrar el campo
--- nombre y apellidos del cliente y el folio y total de facturación.
+-- 8. Listar los datos de los clientes registrados incluyendo a los que no tienen facturas registradas, mostrar el campo nombre y apellidos del cliente y el folio y total de facturación.
+SELECT c.nombre, c.apellido_paterno, c.apellido_materno, tf.folio, tf.total_facturacion
+FROM clientes c
+LEFT JOIN (
+	SELECT f.rfc_cliente, f.folio, SUM(df.precio_venta*df.cantidad) total_facturacion
+	FROM facturas f
+	INNER JOIN detalles_facturas df ON f.folio = df.folio_factura
+	GROUP BY f.rfc_cliente, f.folio
+) tf ON c.rfc_cliente = tf.rfc_cliente;
+
 -- 9. Basado en el inciso anterior, pero mostrado los clientes que no tienen facturas registradas.
+SELECT c.nombre, c.apellido_paterno, c.apellido_materno, tf.folio, tf.total_facturacion
+FROM clientes c
+LEFT JOIN (
+	SELECT f.rfc_cliente, f.folio, SUM(df.precio_venta*df.cantidad) total_facturacion
+	FROM facturas f
+	INNER JOIN detalles_facturas df ON f.folio = df.folio_factura
+	GROUP BY f.rfc_cliente, f.folio
+) tf ON c.rfc_cliente = tf.rfc_cliente
+WHERE tf.folio IS NULL;
+
 -- 10. Obtener una unión de clientes y facturas.
+SELECT *
+FROM clientes c
+FULL OUTER JOIN facturas f ON c.rfc_cliente = f.rfc_cliente;
+
 -- 11. Listar el nombre de los clientes que adquirido cierto producto.
+-- (digamos, el producto con el primer código)
+SELECT DISTINCT c.nombre
+FROM clientes c
+INNER JOIN facturas f ON c.rfc_cliente = f.rfc_cliente
+INNER JOIN detalles_facturas df ON f.folio = df.folio_factura
+INNER JOIN articulos a ON df.codigo_articulo = a.codigo
+WHERE a.codigo = ( -- reemplazar con codigo del articulo deseado
+	SELECT MIN(codigo) FROM articulos
+);
+
 -- 12. Listar que productos no se encuentran en al menos una factura.
+SELECT DISTINCT a.codigo, a.nombre
+FROM articulos a
+LEFT JOIN detalles_facturas df ON a.codigo = df.codigo_articulo
+WHERE df.codigo_articulo IS NULL;
