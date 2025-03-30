@@ -17,6 +17,20 @@
 -------------------------------------------------------------------------------------
 
 -- 7. Listar los datos de clientes con un promedio de facturación menor a 5000.
+SELECT c.*
+FROM clientes c
+INNER JOIN (
+	SELECT f.rfc_cliente, AVG(total_factura) promedio_facturacion
+	FROM facturas f
+	INNER JOIN (
+		SELECT folio_factura, SUM(cantidad*precio_venta) total_factura
+		FROM detalles_facturas
+		GROUP BY folio_factura
+	) tf ON tf.folio_factura = f.folio
+	GROUP BY f.rfc_cliente
+) pf ON c.rfc_cliente = pf.rfc_cliente
+WHERE pf.promedio_facturacion < 5000;
+
 -- 8. Listar los datos de los clientes registrados incluyendo a los que no tienen facturas registradas, mostrar el campo
 -- nombre y apellidos del cliente y el folio y total de facturación.
 -- 9. Basado en el inciso anterior, pero mostrado los clientes que no tienen facturas registradas.
