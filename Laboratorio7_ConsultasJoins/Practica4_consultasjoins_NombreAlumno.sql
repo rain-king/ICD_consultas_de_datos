@@ -7,6 +7,11 @@
 -- Fecha: 30 - Marzo - 2025
 
 -- 1. Listar las facturas registradas ordenadas por Apellido paterno del cliente.
+SELECT c.apellido_paterno, f.*
+FROM facturas f
+INNER JOIN clientes c ON f.rfc_cliente = c.rfc_cliente
+ORDER BY c.apellido_paterno;
+
 -- 2. Listar las facturas registradas ordenadas por Apellido paterno del cliente, con estatus cancelado.
 -- 3. Determinar el total general de facturas canceladas a un cliente específico, mostrado los campos nombre y
 -- apellidos del cliente concatenados y el total, usar alias.
