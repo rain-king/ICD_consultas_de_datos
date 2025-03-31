@@ -1,5 +1,5 @@
 -- Equipo Whisky
--- Alumnos: Gustavo Murillo Vega, Jose Alfredo Sanchez Grijalva, …
+-- Alumnos: Gustavo Murillo Vega, Jose Alfredo Sanchez Grijalva, Misael Enrique Urquidez Lopez, Isvi Gabriel Garcia Monzon
 -- Instructor: Gerardo Gálvez Gámez
 -- Lic. en Ing. en Ciencias de Datos
 -- Tema: Laboratorio 7 Consultas Joins
@@ -13,13 +13,61 @@ INNER JOIN clientes c ON f.rfc_cliente = c.rfc_cliente
 ORDER BY c.apellido_paterno;
 
 -- 2. Listar las facturas registradas ordenadas por Apellido paterno del cliente, con estatus cancelado.
--- 3. Determinar el total general de facturas canceladas a un cliente específico, mostrado los campos nombre y
--- apellidos del cliente concatenados y el total, usar alias.
--- 4. Determinar el total general de facturas activas de un cliente específico, mostrado los campos nombre y
--- apellidos del cliente concatenados y el total, usar alias.
+-- nota: la base de datos no tiene estatus de factura
+SELECT c.apellido_paterno, f.*
+FROM facturas f
+INNER JOIN clientes c ON f.rfc_cliente = c.rfc_cliente
+-- WHERE f.estatus = 'cancelado'
+ORDER BY c.apellido_paterno;
+
+-- 3. Determinar el total general de facturas canceladas a un cliente específico, mostrado los campos nombre y apellidos del cliente concatenados y el total, usar alias.
+-- nota: no hay estatus de factura en la base de datos
+SELECT CONCAT_WS(' ', c.nombre, c.apellido_paterno, c.apellido_materno) nombre_completo, COUNT(f.folio) total
+FROM clientes c
+LEFT JOIN facturas f ON c.rfc_cliente = f.rfc_cliente
+-- WHERE f.estatus = 'cancelado'
+GROUP BY c.rfc_cliente, c.nombre, c.apellido_paterno, c.apellido_materno
+HAVING c.rfc_cliente = ( -- reemplace por la id del cliente deseado
+	SELECT rfc_cliente
+	FROM clientes
+	LIMIT 1
+);
+
+-- 4. Determinar el total general de facturas activas de un cliente específico, mostrado los campos nombre y apellidos del cliente concatenados y el total, usar alias.
+-- nota: no hay estatus para encontrar facturas activas
+SELECT CONCAT_WS(' ', c.nombre, c.apellido_paterno, c.apellido_materno) nombre_completo, COUNT(f.folio) total
+FROM clientes c
+LEFT JOIN facturas f ON c.rfc_cliente = f.rfc_cliente
+-- WHERE f.estatus = 'activo'
+GROUP BY c.rfc_cliente, c.nombre, c.apellido_paterno, c.apellido_materno
+HAVING c.rfc_cliente = ( -- reemplace por la id del cliente deseado
+	SELECT rfc_cliente
+	FROM clientes
+	LIMIT 1
+);
+
 -- 5. Determinar cuántos clientes tienen facturas menores a 1000.
+SELECT COUNT(*) nclientes
+FROM (
+	SELECT DISTINCT c.rfc_cliente
+	FROM clientes c
+	INNER JOIN facturas f ON c.rfc_cliente = f.rfc_cliente
+	-- en este join hay un registro por factura
+	WHERE EXISTS (
+		SELECT 1
+		FROM detalles_facturas df
+		WHERE f.folio = df.folio_factura
+		GROUP BY df.folio_factura
+		HAVING SUM(df.cantidad*df.precio_venta) < 1000
+	)
+	-- con este WHERE solo hay facturas con total menor a 1000
+);
+
 -- 6. Listar el total que se le ha facturado a cada cliente.
--------------------------------------------------------------------------------------
+SELECT f.rfc_cliente, SUM(COALESCE(cantidad*precio_venta, 0)) total
+FROM facturas f
+LEFT JOIN detalles_facturas df ON f.folio = df.folio_factura
+GROUP BY f.rfc_cliente;
 
 -- 7. Listar los datos de clientes con un promedio de facturación menor a 5000.
 SELECT c.*
